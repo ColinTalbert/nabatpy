@@ -1,50 +1,36 @@
-.. image:: https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/USGS_logo_green.svg/320px-USGS_logo_green.svg.png
-        :target: http://www.usgs.gov/
-        :alt: U.S. Geological Survey logo
-
 nabatpy
 ===============================
 
-Python tools for accessing and manipulating North American Bat Monitoring data.
+Provisional Python tools for accessing and manipulating North American Bat Monitoring data.
 
 
 Features
 --------
 
-Add a list of features.
+Download a Geopandas dataframe with GRTS cells
 
 
 Example
 -------
-
-Add a short example
-
 ::
 
-    show some example code here
+    import nabat
+    hawaii = nabat.get_grts_data('Hawaii')
+
+    colorado = nabat.get_grts_data('Conus', state='Colorado')
 
 
 Documentation
 -------------
 
-Add a link to the project and code documenation site.
-
-
-Tests
------
-
-A suite of tests were built using `pytest <http://pytest.org/latest/>`_.
-
-To run the test suite, from the command line in the project's root directory::
-
-    $ py.test tests/
-
+TODO
 
 
 Requirements
 ------------
 
-Add requirements and code dependencies.
+owslib
+geopandas
 
 
 Installation
