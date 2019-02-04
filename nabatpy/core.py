@@ -136,4 +136,7 @@ def get_grts_data(grid_frame, state='', high_priority=False):
         wfs_json = wfs.getfeature(typename=[layer_name], propertyname=None,
                                   srsname='EPSG:4326', outputFormat='application/json').read()
 
-    return gpd.GeoDataFrame.from_features(eval(wfs_json))
+    gdf = gpd.GeoDataFrame.from_features(eval(wfs_json))
+    gdf.crs = {'init': 'epsg:4326'}
+
+    return gdf
