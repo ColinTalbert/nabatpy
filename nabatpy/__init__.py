@@ -15,4 +15,6 @@
 __version__ = "0.0.1"
 
 from .core import get_grts_data, get_layer_name
-__all__ = ['get_layer_name',  'get_grts_data']
+from nabatpy import utils
+
+__all__ = ['get_layer_name',  'get_grts_data', 'utils']

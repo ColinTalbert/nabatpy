@@ -20,6 +20,7 @@ from owslib.wfs import WebFeatureService
 from owslib.fes import *
 from owslib.etree import etree
 
+from osgeo import gdal
 import geopandas as gpd
 import json
 
