@@ -24,6 +24,8 @@ from osgeo import gdal
 import geopandas as gpd
 import json
 
+from nabatpy.utils import normalize_grid_frame
+
 HASH_DICT = {'Alaska': '5b7b54efe4b0f5d578846149',
              'Canada': '5b7b559de4b0f5d57884614d',
              'Conus': '5b7b563ae4b0f5d57884615b',
@@ -56,35 +58,6 @@ def get_layer_name(response):
 
     """
     return [k for k in response.contents.keys() if k not in ['sb:boundingBox', 'sb:footprint']][0]
-
-
-def normalize_grid_frame(grid_frame):
-    """
-    Given a range of acceptible abbreviations and spellings returns the exact frame name that we need.
-
-    Parameters
-    ----------
-    grid_frame : str
-                 The name of the grid frame that we're trying to match to.
-
-    Returns
-    -------
-    str - normalized frame name if a match was found
-    """
-    if grid_frame.lower() in ['ak', 'alaska']:
-        return 'Alaska'
-    elif grid_frame.lower() in ['ca', 'can', 'canada']:
-        return 'Canada'
-    elif grid_frame.lower() in ['conus', 'us', 'usa', 'united states']:
-        return 'Conus'
-    elif grid_frame.lower() in ['hi', 'hawaii']:
-        return 'Hawaii'
-    elif grid_frame.lower() in ['mex', 'mx', 'mexico']:
-        return 'Mexico'
-    elif grid_frame.lower() in ['pr', 'puerto rico', 'puertorico']:
-        return 'PuertoRico'
-    else:
-        raise Exception("The specified grid frame name {grid_frame} is not one of 'Alaska', 'Canada', 'Conus', 'Hawaii', 'Mexico', or 'PuertoRico")
 
 
 def get_grts_data(grid_frame, state='', high_priority=False):

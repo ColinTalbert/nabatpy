@@ -24,6 +24,34 @@ from pathlib import Path
 from datetime import datetime, timedelta
 import pandas as pd
 
+def normalize_grid_frame(grid_frame):
+    """
+    Given a range of acceptible abbreviations and spellings returns the exact frame name that we need.
+
+    Parameters
+    ----------
+    grid_frame : str
+                 The name of the grid frame that we're trying to match to.
+
+    Returns
+    -------
+    str - normalized frame name if a match was found
+    """
+    if grid_frame.lower() in ['ak', 'alaska']:
+        return 'Alaska'
+    elif grid_frame.lower() in ['ca', 'can', 'canada']:
+        return 'Canada'
+    elif grid_frame.lower() in ['conus', 'us', 'usa', 'united states']:
+        return 'Conus'
+    elif grid_frame.lower() in ['hi', 'hawaii']:
+        return 'Hawaii'
+    elif grid_frame.lower() in ['mex', 'mx', 'mexico']:
+        return 'Mexico'
+    elif grid_frame.lower() in ['pr', 'puerto rico', 'puertorico']:
+        return 'PuertoRico'
+    else:
+        raise Exception("The specified grid frame name {grid_frame} is not one of 'Alaska', 'Canada', 'Conus', 'Hawaii', 'Mexico', or 'PuertoRico")
+
 
 def monitoring_night(dt):
     """
