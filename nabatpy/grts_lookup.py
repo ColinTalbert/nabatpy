@@ -137,11 +137,11 @@ def get_grts_geometry(grts_id, return_proj='wgs84', return_type='poly', sample_f
 
     matching_row = df[df.GRTS_ID==grts_id]['frame_id']
     if matching_row.shape[0] == 0:
-        raise Exception(f'The provided grts_ID ({grts_id}) does not have a match in the {sampling_frame} frame.')
+        raise Exception(f'The provided grts_ID ({grts_id}) does not have a match in the {sample_frame} frame.')
     frame_id = int(matching_row)
 
     row = int(frame_id / spec['cols'])
-    col = int(frame_id % spec['cols'])
+    col = int(frame_id % spec['cols']) -1
 
 
     min_x = spec['bounds'][0] + (col*spec['meters'])
