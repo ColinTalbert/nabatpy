@@ -17,6 +17,8 @@
 #############################################################################
 """
 
+from collections import OrderedDict
+
 from guano import GuanoFile
 from astral import Astral
 
@@ -24,9 +26,24 @@ from pathlib import Path
 from datetime import datetime, timedelta
 import pandas as pd
 
+try:
+    import dask
+    from dask import compute, delayed
+
+    import dask.threaded
+    import dask.multiprocessing
+    from dask.diagnostics import ProgressBar
+except ImportError:
+    dask is None
+
+
 column_lookup = pd.read_csv(Path(__file__).parent.joinpath('resources', "NABatColumnRosetta.csv"))
-row_lookup = column_lookup[['bulk_upload_columns', 'df_columns', 'guano_tag2']].dropna()
-row_lookup_v2 = column_lookup[['df_columns', 'guano_tag2']].dropna()
+row_lookup = column_lookup[['bulk_upload_columns1', 'df_columns', 'nabat1_tag']].dropna()
+
+
+row_lookup_v2 = column_lookup[['bulk_upload_columns2', 'df_columns', 'guano_tag', 'nabat2_tag']].copy()
+row_lookup_v2.loc[row_lookup_v2.nabat2_tag.isnull(), 'nabat2_tag'] = row_lookup_v2.guano_tag
+row_lookup_v2 = row_lookup_v2.drop(['guano_tag'], axis=1).dropna()
 
 
 def normalize_grid_frame(grid_frame):
@@ -103,13 +120,13 @@ def parse_nabat_fname(fname):
 
     ofname = fname
 
+    fname = fname.replace(' ', '_')
     fname = fname.replace('-', '_')
     fname = fname.replace('___', '_')
     fname = fname.replace('__', '_')
     fname = fname.replace('_0_', '_')
     fname = fname.replace('_1_', '_')
     fname = fname.replace('_0+1_', '_')
-
 
     f = Path(fname)
 
@@ -131,12 +148,16 @@ def parse_nabat_fname(fname):
     digit = name[0]
     grtsid = ''
     while digit.isnumeric():
-        name = name [1:]
+        name = name[1:]
         grtsid += digit
         digit = name[0]
 
     grtsid = grtsid.lstrip("0")
 
+    last_digit = name[-1]
+    while not last_digit.isnumeric():
+        name = name[:-1]
+        last_digit = name[-1]
 
     if name.startswith('_'):
         name = name [1:]
@@ -144,12 +165,18 @@ def parse_nabat_fname(fname):
         sitename, datestr, timestr = name.split('_')
     except:
         print(ofname, hold_it, "name.split failed")
+        raise Exception("Unable to parse this filename!")
 
-    if len(timestr) > 6:
+    if len(timestr) == 8:
+        timestr = timestr[:6]
+    elif len(timestr) == 6:
+        pass
+    else:
         print(f"problem time: {timestr}, {fname}")
         timestr = "000000"
 
     dt = datetime.strptime('T'.join([datestr, timestr]), "%Y%m%dT%H%M%S")
+
     parts = {"GrtsId":grtsid, "SiteName":sitename, "datetime":dt}
     parts['correct_fname'] = parts_to_fname(parts)
 
@@ -198,33 +225,13 @@ def get_auto_times(fname, geocoder='Denver'):
     return sunset + timedelta(minutes=15), sunrise - timedelta(minutes=15)
 
 
-def update_single_md(fname, guano_md={}, project_md={}, site_md={}):
+def update_single_md(fname, row, to_delete=[]):
     g = GuanoFile(fname)
 
     parts = parse_nabat_fname(fname)
     # content from the NABat filename
     g['NABat', 'Grid Cell GRTS ID'] = parts['GrtsId']
     g['NABat', 'Site Name'] = parts['SiteName']
-
-
-    #content from the site_md
-    if guano_md is None:
-        g['GUANO', 'time_to_time'] = str(parts['datetime'])
-    else:
-        for k, v in guano_md.items():
-            g['GUANO', k] = v
-
-    #content from the project_md
-    if project_md is not None:
-        for k, v in project_md.items():
-            g['NABat', k] = v
-
-    #content from the site_md
-    if site_md is not None:
-        for k, v in site_md.items():
-            g['NABat', k] = v
-
-    g.write(make_backup=False)
 
 
 def bulkupload_to_df(bulk_upload_csv):
@@ -247,17 +254,15 @@ def bulkupload_to_df(bulk_upload_csv):
 
     assert bulk_upload_csv.exists()
 
-    lookup = pd.read_csv(Path(__file__).parent.joinpath('resources', "NABatColumnRosetta.csv"))
-
-    df = pd.read_csv(bulk_upload_csv, parse_dates=['Survey Start Time', 'Survey End Time'])
-
-    if df.iloc[0,0] == 'Integer -Required':
-        df.drop(df.index[0])
-
-    upload_columns = column_lookup[['bulk_upload_columns', 'df_columns']].dropna()
+    df = pd.read_csv(bulk_upload_csv, comment="|", header=None)
+    upload_columns = get_row_lookup(version=2)
+    df.columns = list(upload_columns['bulk_upload_columns'])
 
     df = df.rename(columns=dict(zip(upload_columns.bulk_upload_columns,
                                     upload_columns.df_columns)))
+
+    df['start_time'] = pd.to_datetime(df['start_time'])
+    df['end_time'] = pd.to_datetime(df['end_time'])
 
     return df
 
@@ -282,29 +287,33 @@ def df_to_bulkupload(df, bulk_upload_csv):
     if type(bulk_upload_csv) == str:
         bulk_upload_csv = Path(bulk_upload_csv)
 
-    lookup = pd.read_csv(Path(__file__).parent.joinpath('resources', "NABatColumnRosetta.csv"))
+    # lookup = pd.read_csv(Path(__file__).parent.joinpath('resources', "NABatColumnRosetta.csv"))
+    upload_columns = get_row_lookup(version=2)
 
-    df = df.rename(columns=dict(zip(lookup.df_columns, lookup.bulk_upload_columns)))
+
+    df = df.rename(columns=dict(zip(upload_columns.df_columns, upload_columns.bulk_upload_columns)))
     df.to_csv(bulk_upload_csv, index=False)
 
     return None
 
 
-def generate_bulkupload(source_dname, redo_all=False, recursive=True, verbose=1):
-
+def generate_bulkupload(source_dname, use_previous=True, recursive=True, verbose=1):
+    # print(str(source_dname ))
     d = Path(source_dname)
-    if redo_all:
+    if not use_previous:
         if d.joinpath('_problems.csv').exists():
             d.joinpath('_problems.csv').unlink()
         if d.joinpath('_batchupload.csv').exists():
             d.joinpath('_batchupload.csv').unlink()
 
-    df, problems = guano_to_df(source_dname, recursive=False, verbose=verbose)
+    df = None
+    problems = None
 
     if recursive:
         for thing in d.glob('*'):
             if thing.is_dir():
-                sub_df, sub_problems = generate_bulkupload(thing, recursive=False, verbose=verbose)
+                sub_df, sub_problems = generate_bulkupload(thing, recursive=recursive,
+                                                           verbose=verbose, use_previous=use_previous)
                 if df is None and sub_df is not None:
                     df = sub_df
                 elif sub_df is not None:
@@ -314,6 +323,9 @@ def generate_bulkupload(source_dname, redo_all=False, recursive=True, verbose=1)
                     problems = sub_problems
                 elif sub_problems is not None:
                     problems.append(sub_df, sort=False)
+
+    df, problems = guano_to_df(source_dname, recursive=recursive, verbose=verbose,
+                               use_previous=True)
 
     if df is not None:
         df_to_bulkupload(df, d.joinpath('_batchupload.csv'))
@@ -361,8 +373,7 @@ def guano_to_df(source_dname, recursive=True, verbose=1, use_previous=True):
         if recursive:
             for thing in d.glob('*'):
                 if thing.is_dir():
-                    # print(thing)
-                    sub_df, sub_problems = guano_to_df(thing)
+                    sub_df, sub_problems = guano_to_df(thing, use_previous=use_previous)
                     if df is None:
                         df = sub_df
                     else:
@@ -377,33 +388,48 @@ def guano_to_df(source_dname, recursive=True, verbose=1, use_previous=True):
     return df, problems_df
 
 
-def get_empty_row(version=1):
-    row = OrderedDict()
+def get_row_lookup(version=2):
+    if version == 1:
+        this_row_lookup = row_lookup
+    elif version == 2:
+        this_row_lookup = row_lookup_v2
 
-    if version == 2:
-        for i, keyvalue in row_lookup_v2.iterrows():
-            row[keyvalue.df_columns] = ''
-    else:
-        for i, keyvalue in row_lookup.iterrows():
+    this_row_lookup.columns = ['bulk_upload_columns', 'df_columns', 'nabat_tag']
+    return this_row_lookup
+
+
+def get_empty_row(version=2):
+    this_row_lookup = get_row_lookup(version=version)
+    row = OrderedDict()
+    for i, keyvalue in this_row_lookup.iterrows():
             row[keyvalue.df_columns] = ''
 
     return row
 
 
-def get_row_from_guano(fname):
+def get_row_from_guano(fname, version=2):
 
-    row = get_empty_row()
+    row = get_empty_row(version=version)
+    row['audio_recording_name'] = Path(fname).name
+
+    try:
+        parts = parse_nabat_fname(fname)
+        row['grts_cell_id'] = parts['GrtsId']
+        row['location_name'] = parts['SiteName']
+    except:
+        pass
+
+    this_row_lookup = get_row_lookup(version=version)
 
     try:
         g = GuanoFile(fname)
-        for i, keyvalue in row_lookup.iterrows():
-            value = g.get(keyvalue.guano_tag2, '')
+        for i, keyvalue in this_row_lookup.iterrows():
+            value = g.get(keyvalue.nabat_tag, '')
             if value.lower() == 'nan':
                 value = ''
             row[keyvalue.df_columns] = value
 
         if g.get('NABat|Site coordinates'):
-            #     print('.')
             lat, long = g.get('NABat|Site coordinates').split()
             row['latitude'] = lat
             row['longitude'] = long
@@ -435,12 +461,7 @@ def get_row_from_guano(fname):
                 row[f'{which}_id'] = ''
     except:
         # Something went dreadfully wrong. We'll populate with what we have
-        parts = parse_nabat_fname(fname)
-        row['grts_cell_id'] = parts['GrtsId']
-        row['location_name'] = parts['SiteName']
         row['detector'] = "Problem extracting row from Guano"
-
-    row['audio_recording_name'] = Path(fname).name
 
     return row
 
