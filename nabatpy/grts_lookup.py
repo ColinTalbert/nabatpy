@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from pyproj import Proj, transform
 from pathlib import Path
@@ -63,6 +64,19 @@ def _load_lookup(sample_frame='Conus'):
     return df
 
 
+def WGS_to_framecoords(long, lat, sample_frame='conus'):
+    sample_frame = normalize_grid_frame(sample_frame)
+    # print(sample_frame)
+    out_proj = FRAME_SPECS[sample_frame]['crs']
+    return transform_coords(long, lat, out_proj=out_proj)
+
+
+def framecoords_to_WGS(x, y, sample_frame='conus'):
+    sample_frame = normalize_grid_frame(sample_frame)
+    in_proj = FRAME_SPECS[sample_frame]['crs']
+    return transform_coords(x, y, in_proj=in_proj)
+
+
 def transform_coords(x, y, in_proj=WGS84, out_proj=WGS84):
     return transform(in_proj, out_proj, x, y)
 
@@ -99,7 +113,7 @@ def get_grts(lat, long, sample_frame='conus'):
 
     matching_row = df[df.frame_id==frame_id]['GRTS_ID']
     if matching_row.shape[0] == 0:
-        raise Exception(f'The provided coordinates ({lat}, {long}) do not have a match in the {sampling_frame} frame.')
+        raise Exception(f'The provided coordinates ({lat}, {long}) do not have a match in the {sample_frame} frame.')
 
     grts_id = int(df[df.frame_id==frame_id]['GRTS_ID'])
     return grts_id
