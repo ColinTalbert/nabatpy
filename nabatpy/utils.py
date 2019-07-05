@@ -34,7 +34,7 @@ try:
     import dask.multiprocessing
     from dask.diagnostics import ProgressBar
 except ImportError:
-    dask is None
+    dask = None
 
 
 column_lookup = pd.read_csv(Path(__file__).parent.joinpath('resources', "NABatColumnRosetta.csv"))
