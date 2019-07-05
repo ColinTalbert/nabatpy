@@ -1,0 +1,17 @@
+name: widgets
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.7
+  - numpy
+  - scipy
+  - matplotlib
+  - shapely
+  - pandas
+  - geopandas
+  - ipyleaflet
+  - ipykernel
+  - folium
+  - pyproj
+  - owslib

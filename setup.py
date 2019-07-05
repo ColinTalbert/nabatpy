@@ -24,7 +24,8 @@ requirements = [
 	"geopandas",
 	"folium",
 	"shapely",
-	"pyproj"
+	"pyproj",
+	"osgeo"
 ]
 
 test_requirements = [
