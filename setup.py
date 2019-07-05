@@ -42,9 +42,7 @@ setup(
     author="Colin Talbert",
     author_email="talbertc@usgs.gov",
     url="",
-    packages=[
-        "nabatpy",
-    ],
+    py_modules=["nabatpy"],
     package_dir={"nabatpy":
                  "nabatpy"},
     include_package_data=True,

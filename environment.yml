@@ -16,4 +16,6 @@ dependencies:
   - pyproj
   - owslib
   - astral
-  - guano
+  - pip
+  - pip:
+    - guano
