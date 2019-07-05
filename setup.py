@@ -18,7 +18,13 @@ with open("LICENSE") as license_file:
 
 
 requirements = [
-    # TODO: put package requirements here
+    "pandas",
+	"owslib",
+	"numpy",
+	"geopandas",
+	"folium",
+	"shapely",
+	"pyproj"
 ]
 
 test_requirements = [
