@@ -25,7 +25,8 @@ requirements = [
 	"folium",
 	"shapely",
 	"pyproj",
-	"guano"
+	"guano",
+	"astral"
 ]
 
 test_requirements = [
