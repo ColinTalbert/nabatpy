@@ -161,6 +161,13 @@ def parse_nabat_fname(fname):
 
     if name.startswith('_'):
         name = name [1:]
+
+    if name.endswith('_000'):
+        name = name[:-4]
+
+    if name.endswith('_0000'):
+        name = name[:-5]
+
     try:
         sitename, datestr, timestr = name.split('_')
     except:
